@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>FieshChess V2.0</title>
+    
+    <!-- PWA MANIFEST LINK (Required for APK) -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#262421">
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -93,7 +98,6 @@
             display: none;
         }
 
-        /* Modal styling */
         .modal-overlay {
             position: fixed;
             inset: 0;
@@ -153,7 +157,6 @@
     </header>
 
     <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
-        
         <!-- Game Area -->
         <div class="flex-1 flex flex-col items-center p-2 overflow-y-auto">
             <div class="w-full max-w-[500px] flex items-center justify-between mb-1 px-1">
@@ -403,7 +406,6 @@
 
         document.getElementById('year').innerText = new Date().getFullYear();
 
-        // SCALING & UI FUNCTIONS
         function finishSetup() {
             updateScale(document.getElementById('initial-res').value);
             updateBoardSize(document.getElementById('initial-board').value);
@@ -431,33 +433,24 @@
             initBoard();
         }
 
-        // CHESS960 LOGIC
         function generate960FEN() {
             let pieces = ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'];
-            
-            // Randomize until valid
             while (true) {
-                // Shuffle
                 for (let i = pieces.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
                 }
-                
                 const b1 = pieces.indexOf('b');
                 const b2 = pieces.lastIndexOf('b');
                 const r1 = pieces.indexOf('r');
                 const r2 = pieces.lastIndexOf('r');
                 const k = pieces.indexOf('k');
-                
-                // Rules: Bishops opposite colors, King between Rooks
                 if ((b1 % 2 !== b2 % 2) && (r1 < k && k < r2)) break;
             }
-            
             const backrank = pieces.join('');
             return `${backrank}/pppppppp/8/8/8/8/PPPPPPPP/${backrank.toUpperCase()} w KQkq - 0 1`;
         }
 
-        // BOARD LOGIC
         function initBoard() {
             const boardEl = document.getElementById('board');
             boardEl.innerHTML = '';
@@ -514,7 +507,6 @@
             } else { clearHighlights(); selectedSq = null; }
         }
 
-        // ENGINE SYSTEM
         async function initEngine() {
             if (engine) engine.terminate();
             const res = await fetch('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js');
@@ -596,7 +588,6 @@
             setTimeout(() => { b.style.display = 'none'; }, 2500);
         }
 
-        // ANALYSIS & HISTORY
         async function startGameReview(type) {
             const h = game.history();
             if (h.length === 0) return;
@@ -676,7 +667,6 @@
             }
         }
 
-        // CHESS.COM & LICHESS INTEGRATION
         async function getProfile() {
             const user = document.getElementById('search-username').value;
             const card = document.getElementById('profile-card');
@@ -771,7 +761,6 @@
             } catch(e){}
         }
 
-        // PERSONALITIES
         function buildPers() {
             [document.getElementById('p1-list'), document.getElementById('p2-list')].forEach((container, idx) => {
                 container.innerHTML = '';
@@ -786,7 +775,6 @@
             });
         }
 
-        // SETTINGS WRAPPERS
         function updateTheme(k) { document.documentElement.style.setProperty('--board-light', THEMES[k].light); document.documentElement.style.setProperty('--board-dark', THEMES[k].dark); initBoard(); }
         function updatePieces(k) { pieceSet = k; initBoard(); }
         function clearHighlights() { document.querySelectorAll('.square').forEach(s => s.classList.remove('selected', 'valid-move')); }
@@ -818,6 +806,17 @@
             const pgn = game.pgn();
             document.getElementById('pgn-input').value = pgn; 
             navigator.clipboard.writeText(pgn); 
+        }
+
+        // PWA SERVICE WORKER REGISTRATION (Kept at bottom for safety)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./pwabuilder-sw.js').then(reg => {
+                    console.log('PWA Service Worker registered');
+                }).catch(err => {
+                    console.log('PWA Service Worker failed to register', err);
+                });
+            });
         }
 
         window.onload = () => { 
