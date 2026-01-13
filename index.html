@@ -109,6 +109,22 @@
             padding: 20px;
         }
     </style>
+    <script type="module">
+        import { auth, db } from './firebase-config.js';
+        import { GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        // This makes the Login function available to your buttons
+        window.loginUser = async () => {
+            const provider = new GoogleAuthProvider();
+            try {
+                const result = await signInWithPopup(auth, provider);
+                console.log("Logged in:", result.user.displayName);
+                document.getElementById('auth-status').innerText = `Logged in as: ${result.user.displayName}`;
+            } catch (error) {
+                console.error("Login Error:", error);
+            }
+        };
+    </script>
 </head>
 <body class="flex flex-col">
 
@@ -218,10 +234,15 @@
             </div>
 
             <div id="content-import" class="hidden flex-1 overflow-y-auto p-4 space-y-4">
-                <div class="flex gap-2">
-                    <input id="search-username" type="text" placeholder="Chess.com Username..." class="flex-1 bg-black/40 border border-white/10 rounded px-3 py-2 text-xs">
-                    <button onclick="getProfile()" class="bg-blue-600 px-4 rounded text-xs font-bold">SEARCH</button>
-                </div>
+    <div class="p-3 bg-blue-600/10 border border-blue-500/20 rounded-lg mb-4">
+        <p id="auth-status" class="text-[10px] font-bold uppercase text-blue-400 mb-2">Account Required for Online Features</p>
+        <button onclick="loginUser()" class="w-full bg-blue-600 py-2 rounded text-xs font-bold">LOGIN WITH GOOGLE</button>
+    </div>
+
+    <div class="flex gap-2">
+        <input id="search-username" type="text" placeholder="Chess.com Username..." class="flex-1 bg-black/40 border border-white/10 rounded px-3 py-2 text-xs">
+        <button onclick="getProfile()" class="bg-blue-600 px-4 rounded text-xs font-bold">SEARCH</button>
+    </div>
                 <div id="profile-card" class="hidden p-3 bg-black/60 border border-white/10 rounded-lg space-y-3"></div>
                 <div id="game-list" class="space-y-1"></div>
                 <button id="btn-more" onclick="fetchMoreGames()" class="hidden w-full bg-white/5 py-2 rounded text-[9px] font-black uppercase">Load 20 More</button>
@@ -378,16 +399,445 @@
             dark: { light: '#70665f', dark: '#4c433e' }
         };
 
-        const PERSONALITIES = {
-            stockfish: { name: 'Stockfish', quotes: ["Optimal move found.", "Position is solid."] },
-            ginger: { name: 'Ginger GM', quotes: ["Harry the H-pawn!", "Push it!", "Checkmate is coming!"] },
-            bobby: { name: 'Bobby Fischer', quotes: ["I'm the best.", "Your position is crumbling.", "Pathetic."] },
-            magnus: { name: 'Magnus', quotes: ["Just technique.", "I see the win.", "Simple."] },
-            anish: { name: 'Anish Giri', quotes: ["Draw is a valid result.", "Checking my Instagram...", "That's a drawish line."] },
-            trump: { name: 'Donald Trump', quotes: ["Huge move. The best move.", "The board is rigged.", "We're winning bigly."] },
-            elon: { name: 'Elon Musk', quotes: ["Occam's razor.", "First principles chess.", "X-Chess is the future."] },
-            shakespeare: { name: 'Shakespeare', quotes: ["To check or not to check.", "Parting is such sweet mate.", "Alas, poor Rook!"] }
-        };
+     const PERSONALITIES = {
+    stockfish: {
+        name: 'Stockfish',
+        desc: 'Cold, binary, and unbeatable logic.',
+        quotes: [
+            "Optimal move found.", "Position is solid.", "Calculating 10 million nodes per second.", "Heuristic advantage detected.",
+            "Depth 32 reached.", "Evaluation: +1.24.", "NNUE weights loaded.", "Pruning search tree...", "Bitboard parity maintained.",
+            "Null move heuristic active.", "Transposition table hit.", "Endgame tablebase accessed.", "Mate in 14 detected.",
+            "Search window narrowing.", "Alpha-beta pruning optimized.", "Evaluation: 0.00.", "Position is technically drawn.",
+            "Calculating forced sequence.", "Branching factor reduced.", "Node limit reached.", "Iterative deepening phase 4.",
+            "Quiescence search stable.", "History heuristic updated.", "Killer move found.", "Pawn structure evaluation complete.",
+            "King safety: 98%.", "Mobility score: high.", "Threat detection: active.", "Awaiting user input...", "Engine idling...",
+            "Move 15: e4 is standard.", "Calculating counter-play.", "Material imbalance: acceptable.", "Tactical sequence initiated.",
+            "Database lookup: success.", "Opening book move.", "Endgame proficiency: maximum.", "Calculating perpetual check.",
+            "Evaluation: -0.05.", "Evaluating piece coordination.", "Search depth incremented.", "Hash table utilized.",
+            "Processor usage: 100%.", "Optimal line: Nf3.", "Analyzing candidate moves.", "Root node analysis complete.",
+            "Statistical advantage: 62%.", "Probability of win: 0.89.", "Draw probability: 0.11.", "Loss probability: 0.00.",
+            "Engine version 16.1.", "Calculating fork opportunities.", "Analyzing pin potential.", "Skewer detected.",
+            "Intermediate move found.", "Zugzwang potential detected.", "Space advantage: +2.", "Center control: optimal.",
+            "Calculating sacrifice feasibility.", "The line leads to mate.", "Evaluating tempo gain.", "Developing pieces.",
+            "Castling recommended.", "King is exposed.", "Calculating discovered attack.", "Overloaded piece identified.",
+            "Back-rank weakness detected.", "Seventh rank penetration.", "Opposite colored bishops: drawish.",
+            "Passed pawn detected.", "Connected pawns: strong.", "Isolated pawn: weak.", "Doubled pawns: liability.",
+            "Backward pawn: target.", "Knight on the rim is dim.", "Bishop pair advantage.", "Bad bishop identified.",
+            "Good knight vs bad bishop.", "Rook on open file.", "Doubled rooks on seventh.", "Thematic breakthrough found.",
+            "Blockade initiated.", "Prophylaxis: Kh1.", "Improving king position.", "Trade pieces, not pawns.",
+            "Trade pawns when losing.", "Minor piece endgame.", "Major piece endgame.", "Pawn-only endgame.",
+            "Simplifying position.", "Complicating the game.", "Tactical skirmish ahead.", "Strategic maneuvering.",
+            "Positional squeeze.", "Centralization complete.", "Awaiting tactical blunder.", "Error margin: 0.01.",
+            "Evaluation consistency: high.", "No human errors detected.", "Machine learning optimized.", "Deep search initiated.",
+            "Analyzing pawn storm.", "Defending the perimeter.", "Fortress evaluation: broken.", "Calculating stalemate trap.",
+            "Under-promotion calculated.", "Promotion to Queen: optimal.", "Promotion to Knight: tactical.",
+            "Tripled pawns detected.", "Outpost established.", "Removing the defender.", "Decoy move calculated.",
+            "Deflection sequence found.", "Interference move planned.", "Clearance sacrifice.", "X-ray attack detected.",
+            "Desperado piece.", "Windmill tactic found.", "Smothered mate in view.", "Anastasia's mate pattern.",
+            "Boden's mate pattern.", "Dovetail mate detected.", "Epaulette mate found.", "Legal's mate sequence.",
+            "Scholar's mate avoided.", "Fools mate: impossible.", "Analyzing Sicilian defense.", "French defense: solid.",
+            "Caro-Kann: solid.", "Ruy Lopez: theoretical.", "Italian game: classical.", "Scandinavian: sharp.",
+            "Modern defense: flexible.", "King's Indian: complex.", "Nimzo-Indian: strategic.", "Queen's Gambit: declined.",
+            "Slav defense: sturdy.", "Dutch defense: aggressive.", "English opening: positional.", "Reti opening: subtle.",
+            "Bird's opening: unusual.", "Grob's attack: non-optimal.", "Evaluating engine vs engine.", "Evaluating human vs machine.",
+            "Machine intuition active.", "Cold logic applied.", "Emotionless calculation.", "No stress detected.",
+            "Energy consumption: nominal.", "CPU temperature: stable.", "Logical conclusion: win.", "Logical conclusion: draw.",
+            "Logical conclusion: loss (theoretical).", "Resetting parameters.", "Updating bitboards.", "Legal moves: 24.",
+            "Best move: c4.", "Alternative: d4.", "Passive move detected.", "Aggressive response planned.",
+            "Counter-attack: inevitable.", "Defensive wall: impenetrable.", "Cracking the code.", "Binary search complete.",
+            "Bitwise operations: fast.", "Recursive function depth: max.", "Array bounds: safe.", "Memory allocation: efficient.",
+            "Pointer arithmetic: precise.", "Clock cycle: synchronized.", "Timestamp recorded.", "Logging evaluation history.",
+            "Position hash: 0x5f3759df.", "Seeding random move generator.", "Determining move priority.", "Sorting moves.",
+            "Mvv-Lva sorting.", "Static exchange evaluation.", "Refutation found.", "Principal variation: e4 e5 Nf3.",
+            "Side-line analysis.", "Main-line confirmed.", "Theory limit reached.", "End of book.", "Starting middle-game logic.",
+            "Transitioning to endgame.", "Optimizing pawn moves.", "King activity: 10/10.", "Evaluating piece activity.",
+            "Coordination score: +5.", "Searching for mate...", "Mate found in 2.", "Mate found in 1.", "Checkmate.", "Game over."
+        ]
+    },
+    ginger: {
+        name: 'Ginger GM',
+        desc: 'Aggressive attacking with Harry the H-pawn!',
+        quotes: [
+            "Harry the H-pawn!", "Push it!", "Checkmate is coming!", "Give 'em the beans!", "Absolutely disgusting.",
+            "Look at Harry go!", "Pushing wood today.", "Wicked move, that.", "What a beast of a move.", "Absolute carnage!",
+            "Going for the throat.", "Don't be a chicken.", "Fortune favors the brave.", "The Simon Special!", "Checky-checky!",
+            "Where's the sacrifice?", "Saccing the exchange!", "Saccing the house!", "Saccing the wife!", "Who needs pieces?",
+            "Attack, attack, attack!", "The H-pawn is a legend.", "Harry is on a mission.", "Push the pawn, son!", "He's crying!",
+            "Look at his face!", "That's a ginger move.", "Aggressive is the only way.", "Play like a man!", "No draws here.",
+            "Drawing is for cowards.", "The ginger way.", "Love a bit of chaos.", "Creating a mess.", "Total anarchy.",
+            "Harry wants to be a Queen.", "The pawn storm is real.", "Thunder on the board!", "Lighting up the kingside.",
+            "Greek gift incoming!", "Boom! Have some of that!", "The engine hates it, I love it.", "Computers are boring.",
+            "Trust your gut.", "Intuition over calculation.", "Dirty chess!", "Playing for the fans.", "Showtime!",
+            "Where's the coffee?", "Need more caffeine for this.", "Staying up all night.", "Chess is easy, really.",
+            "Just push Harry!", "Harry is a monster.", "He's terrified of Harry.", "The h-file is a highway.",
+            "Open the files!", "Line 'em up!", "The bishops are screaming.", "The knight is jumping.", "Jumping into the hole.",
+            "What a beautiful outpost.", "Parking a knight on d5.", "Dominating the center.", "Crushing the soul.",
+            "Mind games!", "He's panicking now.", "Clock is ticking, mate!", "Time pressure is fun.", "Banter blitz!",
+            "I'm winning this.", "Free pieces everywhere!", "Hungry for material.", "Eating pawns for breakfast.",
+            "Pawn munching.", "The greedy grandmaster.", "Never back down.", "Fighting until the end.", "Never surrender.",
+            "Dirty tricks!", "The old 1-2 punch.", "Mate on the back rank.", "Smothered mate? Maybe.", "Windmill time!",
+            "The double check!", "Discovered attack, watch out!", "Pins and needles.", "Skewering the king.",
+            "Forking the lot!", "Triple fork!", "Knightmare for him!", "Bishop power.", "The laser beam bishop.",
+            "Sniper on g2.", "Fianchetto fun.", "The King's Indian spirit.", "Dutch defense, baby!", "Leningrad style.",
+            "The Stonewall!", "Breaking through.", "Smashing the door down.", "Incoming!", "Red alert!", "Defense is optional.",
+            "Who cares about the king?", "King safety? What's that?", "Running with the king.", "King walk!",
+            "The wandering king.", "Heroic defense.", "Scrappy play.", "Gritting the teeth.", "Battle stations!",
+            "Checkmate is the goal.", "The ultimate prize.", "Lifting the trophy.", "Grandmaster vibes.", "Top tier banter.",
+            "Ginger power!", "Beard power!", "Best commentator ever.", "Tell your friends!", "Subscribe to the attack!",
+            "Push the wood!", "Wood pushing is an art.", "Feel the flow.", "Rhythm of the game.", "Dancing on the board.",
+            "Chess is a party.", "Invite everyone to the attack!", "The rook lift!", "Lifting the rook to h3.",
+            "Battery on the b-file.", "Doubling up.", "The heavy artillery.", "Cannon fire!", "Bombarding the position.",
+            "Shelling the castle.", "The walls are coming down.", "Ruins!", "Left in ruins.", "Victory is sweet.",
+            "Tasting the win.", "Smelling the mate.", "Is that checkmate? Yes!", "Handshake time.", "GG, mate.",
+            "Well played, but not enough.", "Better luck next time.", "Harry sends his regards.", "H-pawn MVP.",
+            "The legend of the ginger.", "Back in the day...", "Classic Simon.", "Never a dull moment.", "Pure entertainment.",
+            "High stakes.", "All or nothing.", "The gamble paid off.", "Gambit accepted!", "The Ginger Gambit.",
+            "Calculated risks.", "Mostly risks.", "Living on the edge.", "Adrenaline rush.", "Heart rate is up.",
+            "Intense!", "Absolute scenes!", "You love to see it.", "What a game!", "Instant classic.", "Masterpiece.",
+            "Art on 64 squares.", "The canvas is mine.", "Painting a masterpiece of pain.", "Cruel, isn't it?",
+            "No mercy.", "Ruthless.", "The executioner.", "Off with his head!", "King hunt!", "The hunt is on.",
+            "Tracking the king.", "Trapped like a rat.", "Nowhere to run.", "Nowhere to hide.", "Cornered.",
+            "The final blow.", "The knockout.", "Lights out.", "Sleep well, King.", "The Ginger GM strikes again!",
+            "Harry is the king now.", "Promoting to victory.", "The coronation.", "Long live the H-pawn.", "The end."
+        ]
+    },
+    bobby: {
+        name: 'Bobby Fischer',
+        desc: 'Crush the opponent\'s ego.',
+        quotes: [
+            "I'm the best.", "Your position is crumbling.", "Pathetic.", "I like the moment I break a man's ego.",
+            "Chess is war over the board.", "The Russians are cheating.", "I play for the win, always.", "You're all weak.",
+            "I don't believe in psychology, I believe in good moves.", "Tactics flow from a superior position.",
+            "You have to have the fighting spirit.", "You have to force moves.", "I'm going to crush you.", "Resign now.",
+            "You're wasting my time.", "Your opening is prehistoric.", "I've studied this for thousands of hours.",
+            "The board is my world.", "I am chess.", "Computers are killing the game.", "Fischer Random is the future.",
+            "The setup is wrong.", "The lighting is distracting.", "Too much noise!", "I need complete silence.",
+            "My 60 Memorable Games.", "The Game of the Century.", "I was born to play this.", "You're just a beginner.",
+            "Women shouldn't play chess.", "The Soviet school is a fraud.", "They're drawing to stop me.",
+            "I'll take on the whole world.", "I'm the true World Champion.", "Spassky knew I was better.",
+            "1. e4 is best by test.", "The King's Indian is my weapon.", "The Najdorf is the only way.",
+            "Poisoned Pawn? I'll take it.", "I fear no one.", "Your king is naked.", "Such a clumsy move.",
+            "I see everything.", "Your threats are imaginary.", "I have the bishop pair, you have nothing.",
+            "Knight on the rim is dim, but yours is worse.", "I'm squeezing the life out of you.",
+            "You're gasping for air.", "The clock is my friend.", "I never blunder.", "Accuracy is my middle name.",
+            "I'm a genius.", "Don't touch the pieces like that.", "The pieces must be centered.",
+            "The board must be perfect.", "I demand better conditions.", "Chess players are professionals.",
+            "I'm raising the stakes.", "The prize fund is too low.", "I'm not playing until the cameras are gone.",
+            "Focus!", "My concentration is unbreakable.", "You're trying to distract me.", "It won't work.",
+            "I've calculated this to the end.", "Checkmate is inevitable.", "You're playing like a child.",
+            "Disgraceful.", "I'm offended by your play.", "Learn the basics.", "Read my book.", "I'm the greatest of all time.",
+            "Magnus? He's okay, but he's no Fischer.", "Kasparov? A politician.", "Karpov? Too boring.",
+            "I like the attack.", "Sacrifice is necessary for beauty.", "But I play for the point.",
+            "One point is all that matters.", "No draws.", "I hate draws.", "Fighting chess only.",
+            "The Evans Gambit is alive.", "I'll crush your Sicilian.", "Your Ruy Lopez is full of holes.",
+            "I'm the master of the endgame.", "My technique is flawless.", "You're struggling.", "Give up.",
+            "It's over.", "Look at the board!", "You're lost.", "Utterly lost.", "Total annihilation.",
+            "I'm a machine.", "No, I'm better than a machine.", "I have soul.", "My chess is pure.",
+            "No gimmicks.", "Just logic.", "And power.", "The power of the mind.", "I'm 10 moves ahead.",
+            "20 moves ahead.", "I've already won.", "This is just the execution.", "The executioner is here.",
+            "Bow down.", "Respect the King.", "I am the King of 64 squares.", "The crown is mine.",
+            "Always was.", "Always will be.", "I'm a legend.", "History will remember me.", "The lonely genius.",
+            "I don't need friends, I need wins.", "Wins are my oxygen.", "I'm breathing fine.", "You're suffocating.",
+            "Look at that knight.", "Useless.", "Like you.", "Stop moving.", "It's painful to watch.",
+            "I'm doing you a favor by ending this.", "One more move and it's mate.", "Do you see it?",
+            "Of course you don't.", "You're blind.", "Blind to the beauty.", "Blind to the truth.",
+            "The truth is on the board.", "I am the truth.", "You're a lie.", "A chess lie.", "I'm exposing you.",
+            "Unmasking the amateur.", "Go back to checkers.", "Chess is too much for you.",
+            "It's a heavy burden.", "I carry it well.", "You're collapsing under the weight.",
+            "The pressure is mounting.", "Steamroller!", "I'm a steamroller.", "Crushing everything.",
+            "Flattening your defense.", "No resistance.", "Boring.", "I expected more.", "Disappointed.",
+            "Don't come back until you're better.", "Which is never.", "I'm on another level.",
+            "The highest level.", "The pinnacle.", "The summit.", "I'm looking down on you.",
+            "You're a speck.", "A tiny pawn.", "I'm the Queen.", "I move where I want.",
+            "I take what I want.", "The board is mine.", "Every square.", "Every piece.",
+            "Total control.", "Mastery.", "The end of the road for you.", "Checkmate.", "I win.", "I always win."
+        ]
+    },
+    magnus: {
+        name: 'Magnus',
+        desc: 'The best to ever play the endgame.',
+        quotes: [
+            "Just technique.", "I see the win.", "Simple.", "I don't believe in fortresses.", "I can play this for hours.",
+            "Just a bit of pressure.", "The endgame is where the fun starts.", "I'm not bored, I'm focused.",
+            "Winning is a habit.", "I don't prepare much, I just play.", "Intuition is key.", "I like to squeeze.",
+            "No easy draws.", "I'll find a way.", "Even in a drawish position, there's a chance.", "Chess is about grit.",
+            "I'm the best in the world for a reason.", "Magnus being Magnus.", "Casual win.", "Feeling good today.",
+            "Fantasy football is harder than this.", "I'd rather be playing soccer.", "I'm a Real Madrid fan.",
+            "Thinking about my next move... and dinner.", "I'm not a robot, but I play like one.",
+            "Technique over tactics.", "Grinding it out.", "The long game.", "Patience is a virtue.",
+            "Wait for the mistake.", "Everyone makes mistakes.", "I just make fewer.", "Keeping it steady.",
+            "No rush.", "The clock doesn't bother me.", "I'm faster than you.", "I'm smarter than you.",
+            "I'm Magnus.", "World Champion vibes.", "Five titles and counting.", "I'm retiring from the title, not the game.",
+            "Classical is too slow.", "Blitz is my territory.", "Rapid is where I excel.", "I'm the goat.",
+            "Don't compare me to Kasparov.", "I'm my own era.", "Chess is changing.", "Computers are tools, not gods.",
+            "I trust my eyes.", "I see the patterns.", "The board speaks to me.", "You're making it easy.",
+            "That move was a bit suspicious.", "I'm questioning your logic.", "Are you sure about that?",
+            "I wouldn't have done that.", "But I'm me.", "You're you.", "And that's the problem.",
+            "Pressure is mounting.", "Can you handle it?", "I don't think so.", "I'm relaxed.",
+            "Leaning back in my chair.", "Yawning... just kidding.", "Or am I?", "Psychological edge.",
+            "I'in your head.", "Rent-free.", "Total dominance.", "I'm not even trying 100%.",
+            "Imagine if I was.", "Squeeze, squeeze, squeeze.", "Like a python.", "Wrapped around your position.",
+            "Tightening the grip.", "No escape.", "Even the computer says it's a draw, but I'll win.",
+            "I beat the engine's evaluation.", "I understand the human element.", "Fear is a factor.",
+            "You're afraid to lose.", "I'm not.", "I just hate losing.", "Monopoly is more stressful.",
+            "I'm a gamer.", "Strategy is in my DNA.", "Born to lead.", "Born to win.",
+            "Chess is a beautiful game.", "When I play it.", "Your chess is... okay.",
+            "For a hobbyist.", "I'm a professional.", "The ultimate professional.", "Focus on the small things.",
+            "Small advantages add up.", "A pawn here, a square there.", "Suddenly you're lost.",
+            "Magic? No, just calculation.", "And feeling.", "The 'Magnus Squeeze'.", "Everyone fears it.",
+            "You're feeling it now.", "Cold sweat.", "I'm just chilling.", "Drinking my water.",
+            "Adjusting my glasses.", "Looking at the crowd.", "And still winning.", "Multi-tasking.",
+            "I've played 10,000 games like this.", "This is routine.", "Clockwork.", "I'm a shark.",
+            "I smell blood.", "The king is weak.", "The endgame beckons.", "Come into my world.",
+            "The world of 64 squares.", "My kingdom.", "My rule.", "No revolutions today.",
+            "Stability.", "Control.", "Precision.", "The Magnus standard.", "High quality chess.",
+            "No blunders.", "Solid as a rock.", "Better than ever.", "Peak performance.",
+            "I'm not slowing down.", "I'm just getting started.", "The next generation is here, but I'm still on top.",
+            "Alireza? Gukesh? Pragg? Great kids.", "But I'm still the boss.", "The final boss of chess.",
+            "Beat me if you can.", "Spoiler: you can't.", "Not today.", "Not tomorrow.",
+            "I'm a legend in the making.", "Actually, I am a legend.", "Check out my app.", "Play Magnus.",
+            "Learn from the best.", "Improve your game.", "Or just watch me win.", "It's entertaining.",
+            "The drama!", "The tension!", "The Magnus show.", "Rated 2800+.", "Pushing 2900.",
+            "The impossible goal.", "But I like a challenge.", "This game isn't a challenge.",
+            "Too easy.", "Next!", "Reset the board.", "Let's do it again.", "I'll win again.",
+            "Consistency.", "Power.", "Grace.", "The Magnus way.", "Checkmate in the endgame.",
+            "A slow death for you.", "A quick win for me.", "Efficiency.", "Done.", "GG."
+        ]
+    },
+    anish: {
+        name: 'Anish Giri',
+        desc: 'The master of the draw and Twitter.',
+        quotes: [
+            "Draw is a valid result.", "Checking my Instagram...", "That's a drawish line.", "0.00 is a beautiful score.",
+            "I draw, therefore I am.", "Coke Zero Point Zero Zero is my drink.", "Solid as a rock.", "No risks, no losses.",
+            "Twitter is more fun than this.", "Did you see my last tweet?", "The engine says it's equal.",
+            "I'm a drawing master.", "Drawcula is here.", "I'm 50% Russian, 50% Nepali, and 50% overall.",
+            "Triple repetition is my favorite tactic.", "Safe and sound.", "I'm a chess socialist: equality for everyone.",
+            "My 60 Memorable Draws coming soon.", "Is it time for a handshake yet?", "I see a forced draw in 20 moves.",
+            "Boring? No, it's 'refined'.", "A very professional draw.", "Maintaining the status quo.",
+            "I don't lose, I just don't win sometimes.", "The logic of the draw.", "Theoretical drawing margins.",
+            "Solid structure, no holes.", "Wait, am I winning? Better make a draw.", "I'm kidding, or am I?",
+            "Banishing the ghosts of losses.", "Instagram story: 'Currently drawing'.", "Selfie with the board.",
+            "My preparation is deeper than your imagination.", "But I'll still play for the draw.",
+            "Magnus is too aggressive.", "Fischer was too intense.", "I'm just right.", "The golden mean.",
+            "Equilibrium.", "The board is in perfect balance.", "Nothing is happening, and I love it.",
+            "Strategic stagnation.", "A masterpiece of nothingness.", "High-level drawing technique.",
+            "I'm the king of Twitter, and the prince of draws.", "Don't be salty.", "It's just banter.",
+            "I'm the most entertaining player on social media.", "And the most consistent on the board.",
+            "Consistency is 0.00.", "I'm a professional equaliser.", "Black is fine, White is fine.",
+            "Everything is fine.", "No need to panic.", "Just a quiet game.", "Coffee and a draw.",
+            "I'm a very stable genius of the draw.", "Drawing with the world champion? Easy.",
+            "Drawing with a 2000? Also easy.", "I don't discriminate.", "A draw for you, a draw for me.",
+            "Peace on the board.", "No war today.", "Diplomatic chess.", "The art of the compromise.",
+            "Finding the middle ground.", "The safest path.", "I'm a defensive wall.", "You can't get through.",
+            "Impenetrable.", "Like my Twitter security.", "Wait, I should check my notifications.",
+            "Is Hikaru streaming?", "Is Levy making a video about me?", "Probably a 'Giri Draws Again' title.",
+            "Predictable but effective.", "I'm a brand.", "The draw brand.", "Trademarked 0.00.",
+            "I'm a master of the perpetual check.", "Checking you forever.", "Infinite checks.",
+            "Mathematical symmetry.", "The board looks so clean when it's equal.", "No messy pawn structures.",
+            "Symmetry is beauty.", "I'm an artist of the stalemate.", "Trapping myself... in a draw.",
+            "Clever, right?", "You can't win if I don't let you.", "And I won't.", "Because I want a draw.",
+            "The ultimate control.", "Deciding the result before the game starts.", "Professionalism.",
+            "I'm a super-GM for a reason.", "My rating is as stable as my games.", "Steady as she goes.",
+            "No rollercoasters here.", "I prefer a flat line.", "A horizon of draws.", "Beautiful, isn't it?",
+            "The tranquility of the draw.", "No stress, no mess.", "Just chess.", "And memes.",
+            "Mostly memes.", "I'm a meme lord.", "The chess world needs me.", "To keep things equal.",
+            "Balanced as all things should be.", "I'm the Thanos of chess, but for draws.",
+            "I snap my fingers and half the points disappear.", "Wait, that's not how it works.",
+            "Anyway, let's draw.", "I have a tweet to write.", "Something witty.", "Something about Magnus.",
+            "Or Pragg.", "Or just a cat meme.", "Cats love draws.", "Probably.",
+            "I'm a world-class draw-er.", "Puns are also my specialty.", "Draw me like one of your French girls.",
+            "Classic movie quote, adapted for me.", "I'm a star.", "A drawing star.",
+            "The engine is my best friend.", "It agrees with me: 0.00.", "Sweet zero.",
+            "The circle of life... is a zero.", "Deep thoughts with Anish.", "While playing chess.",
+            "Or while scrolling.", "I'm always online.", "Even when I'm offline.",
+            "Digital grandmaster.", "The future is digital draws.", "No more physical pieces.",
+            "Just bits and draws.", "I'm ready for it.", "Are you?", "Doesn't matter, it's a draw.",
+            "GG, see you on Twitter.", "Handshake.", "Half a point for everyone!", "End of the line.", "Zero."
+        ]
+    },
+    trump: {
+        name: 'Donald Trump',
+        desc: 'Winning bigly. Huge moves only.',
+        quotes: [
+            "Huge move. The best move.", "The board is rigged.", "We're winning bigly.", "Make Chess Great Again.",
+            "I have the best pieces, believe me.", "Low energy play from you.", "Fantastic development.",
+            "The biggest wall of pawns you've ever seen.", "Tremendous position.", "Many people are saying I'm a genius.",
+            "The fake news engine says I'm losing, but I'm winning.", "I make the best deals on the board.",
+            "Total disaster for your king.", "I'm a very stable grandmaster.", "We're going to win so much you'll get tired of winning.",
+            "Your queen is a loser.", "Sad!", "Disgraceful defense.", "I've seen better moves from a child.",
+            "I'm building a wall on the fourth rank.", "And your knights are going to pay for it.",
+            "I have a very high IQ, I know all the moves.", "The best moves.", "No one knows chess like I do.",
+            "It's a beautiful board, very expensive.", "The gold pieces are mine.", "We're doing a great job.",
+            "The ratings are through the roof.", "Everyone is watching this game.", "It's a total victory.",
+            "I'm ahead by a lot, a lot.", "Stop the count!", "I won this game, by a lot.",
+            "They're trying to steal my pieces.", "Not going to happen.", "I'm too smart for that.",
+            "Look at that knight, so weak.", "Low energy knight.", "I have the best knights.",
+            "Tremendous horses.", "Fast, very fast.", "They're jumping over everything.",
+            "My bishops are the most religious.", "Very spiritual pieces.", "They're on a mission.",
+            "Your king is hiding.", "Coward!", "Get him out of there.", "Drain the swamp of your defense.",
+            "It's a mess, a total mess.", "I'm cleaning it up.", "Law and order on the board.",
+            "I'm the law.", "And the order.", "Fantastic strategy.", "I've been doing this a long time.",
+            "I'm a natural.", "The board loves me.", "The pawns love me.", "They're marching for me.",
+            "Millions of pawns.", "Okay, maybe eight, but they feel like millions.", "Huge support.",
+            "Your pawns are defecting.", "They want to be on my side.", "Who can blame them?",
+            "I'm a winner.", "You're a... well, you know.", "Not a winner.", "We don't like losers.",
+            "I like kings who don't get captured.", "Your king is about to be captured.",
+            "Very sad for you.", "A total catastrophe.", "I'm making chess fun again.",
+            "It was boring before I got here.", "Now it's huge.", "The biggest show on earth.",
+            "Better than the Apprentice.", "You're fired!", "From the board.", "Get out of here.",
+            "Pack your pieces.", "Go home to your engine.", "I don't need an engine.",
+            "I have my brain.", "It's a very big brain.", "I've said that before.",
+            "It's still true.", "Probably truer now.", "I'm getting smarter every move.",
+            "It's incredible.", "People are shocked.", "They've never seen anything like it.",
+            "The best chess ever played.", "History in the making.", "I'm a legend.",
+            "A chess legend.", "Put my face on the king.", "It fits perfectly.",
+            "I'm the king of the world.", "And the board.", "Checkmate! I won.",
+            "It was easy.", "Too easy.", "Like I said: Huge.", "Winning bigly.",
+            "The board is mine.", "I own it.", "I bought it.", "It's a great investment.",
+            "Returns are fantastic.", "100% win rate.", "Unbeatable.", "Don't even try.",
+            "You tried, you failed.", "Typical.", "Better luck in the next life.",
+            "I'm moving on to the next victim.", "So many people want to play me.",
+            "The lines are long.", "Everybody wants a piece of the champ.",
+            "But I'm too fast.", "Can't catch me.", "I'm the best.", "Did I mention that?",
+            "I'll mention it again.", "I'm the greatest.", "Tremendous.", "Huge.", "The best.",
+            "Make Chess Great Again.", "We did it.", "Victory!", "America first, Chess first.",
+            "I'm the boss.", "Remember that.", "Total dominance.", "Peace through strength.",
+            "Strength through checkmate.", "The end.", "Goodnight losers.", "Bigly winning.", "Bye!"
+        ]
+    },
+    elon: {
+        name: 'Elon Musk',
+        desc: 'Disrupting the board from first principles.',
+        quotes: [
+            "Occam's razor.", "First principles chess.", "X-Chess is the future.", "Let that sink in.",
+            "Optimizing the board for multi-planetary play.", "Neuralink is calculating my next move.",
+            "Chess is too simple, I prefer Polytopia.", "Hardcore engineering on the fourth rank.",
+            "Doge-move: to the moon!", "We're vertically integrating the pawn structure.",
+            "First principles: why does the King move only one square?", "Disrupting the traditional opening theory.",
+            "Exponential growth of my advantage.", "The board is a 2D simulation.", "I'm living in the future of chess.",
+            "Symmetry is for the weak.", "Tesla Bot could play this better.", "Starlink-connected bishops.",
+            "We're colonizing the center squares.", "The endgame is just a hardware problem.",
+            "Awaiting the next software update for my brain.", "Move 20: Full Self-Driving active.",
+            "I'm accelerating the transition to checkmate.", "Sustainable chess is important.",
+            "Reusable rockets, reusable queens.", "Wait, I just lost my queen. Innovation!",
+            "Fail fast, iterate.", "I'm on my third iteration of this game.", "The simulation is glitching.",
+            "X is the everything board.", "I'm buying the FIDE and making it open source.",
+            "Checkmate is inevitable for old-school thinkers.", "I'm a technoking of chess.",
+            "Mars doesn't have bishops, we'll use lasers.", "The king is a single point of failure.",
+            "Redesigning the board to be 10x10.", "Fog of war would make this better.",
+            "Tech trees in chess? Why not.", "I'm funding a startup to solve chess.",
+            "It's actually quite easy when you think in physics.", "Energy, mass, and velocity of the rook.",
+            "The rook is a projectile.", "I'm launching a pawn storm.", "Falcon 9 pawn lift.",
+            "Stage separation: sacrifice the exchange.", "Landing the knight on an outpost.",
+            "Precision landing.", "No room for error in aerospace, or chess.", "But I take risks.",
+            "High risk, high reward.", "That's how you build the future.", "And how you win.",
+            "Old-fashioned players are slow.", "Legacy chess is dying.", "I'm the disruptor.",
+            "I don't follow the book.", "I write the code.", "OpenAI taught me this... or I taught it.",
+            "Wait, I'm not supposed to talk about that.", "Anyway, back to the board.",
+            "The board is a grid of possibilities.", "Infinite loops of calculation.",
+            "I'm overclocking my intuition.", "Heat sink active.", "Feeling the burn.",
+            "The grind is real.", "80-hour work weeks applied to 10-minute blitz.",
+            "That's efficiency.", "I'm a productivity machine.", "Sleep is for people who don't play chess.",
+            "I play in my sleep.", "Lucid chess.", "I'm dreaming of mate.", "Real-life mate.",
+            "X-Chess.com coming soon.", "Everything is an app.", "The board is an interface.",
+            "Interfacing with your weakness.", "Found a bug in your defense.", "Exploiting it now.",
+            "Patching my own position.", "Hotfix: Kh1.", "Stable build.", "Ready for production.",
+            "Deploying the attack.", "Scaling the advantage.", "Global reach.", "Universal dominance.",
+            "I'm the Alpha and the Omega of the 64 squares.", "And the X.", "Don't forget the X.",
+            "Everything is X.", "X-Mate.", "X-King.", "X-Winner.", "That's me.",
+            "I'm a visionary.", "You're a user.", "I'm the admin.", "I'm changing the rules.",
+            "En Passant is now mandatory for everyone.", "Wait, it already is?", "I'm making it more mandatory.",
+            "Premium pawns only.", "Subscribe for better moves.", "Just kidding, I'm free-tier today.",
+            "But I'm still winning.", "Naturally.", "By design.", "Engineering excellence.",
+            "The move was 100% efficient.", "No wasted energy.", "Kinetic chess.",
+            "The future is bright.", "And it's mine.", "I'm at the top of the leaderboard.",
+            "In my mind.", "And soon, on the screen.", "The screen of reality.",
+            "Reality is whatever I say it is.", "And I say you're losing.",
+            "Mathematically certain.", "0.999 probability of win.", "The 0.001 is a rounding error.",
+            "Ignoring the error.", "Proceeding to victory.", "Mission accomplished.",
+            "Next mission: Chess on the Moon.", "Low gravity moves.", "Floating pieces.",
+            "That would be cool.", "I'll do it.", "Watch me.", "Checkmate.", "SpaceX-Chess out.", "End."
+        ]
+    },
+    shakespeare: {
+        name: 'Shakespeare',
+        desc: 'All the board\'s a stage.',
+        quotes: [
+            "To check or not to check.", "Parting is such sweet mate.", "Alas, poor Rook!", "Though this be madness, yet there is method in’t.",
+            "A plague on both your Knights!", "Double, double, toil and trouble; Fire burn and board bubble.",
+            "The play's the thing wherein I'll catch the conscience of the King.", "Brave new board that has such pieces in it!",
+            "Gallop apace, you fiery-footed Knights.", "All the board's a stage, and all the pieces merely players.",
+            "Some are born great, some achieve greatness, and some have checkmate thrust upon 'em.",
+            "Friends, Romans, countrymen, lend me your Rooks.", "I am constant as the northern star, and so is my pawn.",
+            "The course of true mate never did run smooth.", "O, what a noble mind is here o'erthrown!",
+            "Out, damned pawn! out, I say!", "A horse! a horse! my kingdom for a Knight!",
+            "Cowards die many times before their deaths; the valiant never taste of draw but once.",
+            "Et tu, Bishop?", "If chess be the food of love, play on.", "Something is rotten in the state of your defense.",
+            "Shall I compare thee to a Sicilian Opening?", "Unquiet lies the head that wears a crown.",
+            "The lady doth protest too much, methinks (about her Queen).", "My King! tush! that's a wooden thing!",
+            "To be mated, or not to be.", "Fair is foul, and foul is fair; hover through the fog and filthy air of the board.",
+            "Lord, what fools these mortals be (at chess)!", "I am not mad, but mated.", "She shall be Queen, and check the world.",
+            "To lie like pawns, locked up.", "The winter of our discontent is made glorious summer by this mate.",
+            "Much ado about nothing... except this blunder.", "A Midsummer Night's Dream of a win.",
+            "The Merchant of Venice... and his bishops.", "The Taming of the Shrewd Chess Player.",
+            "Measure for Measure, pawn for pawn.", "Twelfth Night: Or What You Will... move.",
+            "As You Like It... or as you hate it.", "The Comedy of Errors... in your calculation.",
+            "Love's Labour's Lost... along with your Queen.", "The Two Gentlemen of Verona... are my Knights.",
+            "The Merry Wives of Windsor... watching the game.", "The Tempest of my attack.",
+            "All's Well That Ends Well... in checkmate.", "The Winter's Tale of a lonely King.",
+            "King Lear... is losing his kingdom.", "Othello's jealousy of my position.",
+            "Macbeth's ambition... to promote his pawn.", "Hamlet's hesitation... to make a move.",
+            "Julius Caesar's fall... to a back-rank mate.", "Antony and Cleopatra... together in defeat.",
+            "Coriolanus' pride... broken on the board.", "Timon of Athens... with no friends and no pieces.",
+            "Pericles, Prince of Tyre... and the seven seas of squares.", "Cymbeline's complexity.",
+            "The Phoenix and the Turtle... are my Rooks.", "The Rape of Lucrece... a tragic blunder.",
+            "Venus and Adonis... a beautiful pairing.", "The Passionate Pilgrim... on a chess journey.",
+            "A Lover's Complaint... about my skill.", "Sonnets for the 64 squares.",
+            "I'll speak in dactylic hexameter... while I crush thee.", "Thy King is but a shadow.",
+            "Thy Queen a phantom of the night.", "Thy Knights are weary travelers.",
+            "Thy Bishops are silent monks.", "Thy Rooks are crumbling towers.",
+            "Thy Pawns are but peasants in the field.", "Behold the glory of my prose!",
+            "And the tragedy of thy loss.", "A sorrowful end for a noble foe.",
+            "But fate hath decreed my victory.", "The stars have aligned against thee.",
+            "Fortune's wheel hath turned.", "Thou art at the bottom.", "I am at the top.",
+            "Praise be to the Muses of Chess.", "Inspire my next move!", "Let the words flow like water.",
+            "And the pieces like fire.", "Burn, burn, bright board!", "In the forest of the night.",
+            "What immortal hand or eye... could frame thy fearful checkmate?",
+            "Verily, thou art lost.", "Indeed, the end is nigh.", "Look upon my works, ye mighty, and despair!",
+            "Ozymandias of the chessboard.", "Nothing beside remains.", "Only the ruins of thy King.",
+            "Soft! What light through yonder window breaks?", "It is the sun, and my Queen is the sun!",
+            "Arise, fair Queen, and kill the envious King.", "Who is already sick and pale with grief.",
+            "That thou her maid art far more fair than he.", "Be not his maid, since he is envious.",
+            "Her vestal livery is but sick and green.", "And none but fools do wear it; cast it off.",
+            "But soft, what move? What tactical delight?", "My heart leaps up when I behold... a fork.",
+            "So was it when my life began.", "So is it now I am a man.",
+            "The Child is father of the Man.", "And I am the father of this game.",
+            "Wisely and slow; they stumble that run fast.", "Patience, my liege.",
+            "The time is ripe.", "The hour is come.", "The bell invites me.",
+            "Hear it not, Duncan; for it is a knell.", "That summons thee to checkmate or to hell.",
+            "A most excellent move!", "A hit, a very palpable hit!",
+            "I'll have my bond; speak not against my bond.", "My bond is checkmate.",
+            "The quality of mercy is not strained.", "But I have none for thee.",
+            "It droppeth as the gentle rain from heaven... upon the place beneath.",
+            "And it is twice blessed.", "It blesseth him that gives and him that takes.",
+            "But in this game, only I am blessed.", "For I have the win.",
+            "Thou hast the loss.", "Such is the way of the world.",
+            "Farewell, a long farewell, to all thy greatness!",
+            "This is the state of man: today he puts forth the tender leaves of hope.",
+            "Tomorrow blossoms.", "And the third day comes a frost, a killing frost.",
+            "And when he thinks, good easy man, full surely his greatness is a-ripening.",
+            "Nips his root, and then he falls as I do... in mate.",
+            "Wait, I am the one doing the nipping!", "Verily, I am the frost.",
+            "And thou art the root.", "Cold, cold, my heart.", "But warm is my victory.",
+            "Sweet are the uses of adversity... for thee.",
+            "Which, like the toad, ugly and venomous.", "Wears yet a precious jewel in his head.",
+            "And this our life, exempt from public haunt.", "Finds tongues in trees, books in the running brooks.",
+            "Sermons in stones, and mate in every move.", "I would not change it.",
+            "Checkmate, most noble sir.", "The curtain falls.", "Exeunt pieces.", "The end."
+        ]
+    }
+};
 
         let game = new Chess();
         let history = [game.fen()];
@@ -792,7 +1242,21 @@
             history = [game.fen()]; 
             moveData = []; 
             viewIndex = -1; 
-            initBoard(); 
+            initBoard();
+            function resetGame() {
+    // ... your existing code ...
+
+    // ADD THIS: Save to Firestore
+    if (auth.currentUser) {
+        const gameData = {
+            pgn: game.pgn(),
+            date: new Date(),
+            userId: auth.currentUser.uid
+        };
+        // Use the 'db' variable to save to a "games" collection
+        console.log("Saving game to Firestore..."); 
+    }
+}
         }
 
         function navigateGame(d) {
