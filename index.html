@@ -135,51 +135,45 @@ import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, addDoc,
 
         // 3. AUTH WATCHER (Handles UI, Admin Crown, and Sidebar Status)
 // 3. AUTH WATCHER (Handles UI, Admin Crown, and Sidebar Status)
+// 3. AUTH WATCHER (Updated for Section Management)
         onAuthStateChanged(auth, async (user) => {
             const display = document.getElementById('auth-status-display');
             const logoutBtn = document.getElementById('logout-btn');
             const loginBtn = document.getElementById('login-btn-header');
-            const sidebarStatus = document.getElementById('auth-status');
-            const saveBtn = document.getElementById('save-game-btn'); // Finds your new button
+            
+            // New UI Section Constants
+            const cloudSection = document.getElementById('cloud-section');
+            const guestPrompt = document.getElementById('guest-prompt');
 
             if (user) {
-                // LOGGED IN: Show Logout and Save buttons
+                // USER LOGGED IN
                 if(loginBtn) loginBtn.classList.add('hidden');
                 if(logoutBtn) logoutBtn.classList.remove('hidden');
-                if(saveBtn) saveBtn.classList.remove('hidden'); 
+                if(cloudSection) cloudSection.classList.remove('hidden'); // Shows Save/Cloud area
+                if(guestPrompt) guestPrompt.classList.add('hidden'); // Hides Login prompt
                 
                 if(display) {
                     display.innerText = user.displayName;
-                    display.classList.remove('text-gray-500');
                     display.classList.add('text-green-400');
                 }
-                if(sidebarStatus) sidebarStatus.innerText = `Logged in as ${user.displayName}`;
 
                 // Check for Admin
                 try {
                     const userDoc = await getDoc(doc(db, "users", user.uid));
                     if (userDoc.exists() && userDoc.data().role === 'admin') {
-                        if(display) {
-                            display.innerText = "👑 " + user.displayName;
-                            display.classList.replace('text-green-400', 'text-yellow-400');
-                        }
+                        if(display) display.innerText = "👑 " + user.displayName;
                     }
                 } catch (e) { console.error(e); }
 
-                // Automatically load history when the user logs in
-                window.loadHistory();
-
+                // This triggers the cloud game loading
+                window.loadHistory(); 
             } else {
-                // LOGGED OUT: Hide Logout and Save buttons
-                if(display) {
-                    display.innerText = "Guest";
-                    display.classList.add('text-gray-500');
-                    display.classList.remove('text-green-400', 'text-yellow-400');
-                }
+                // USER LOGGED OUT
+                if(display) display.innerText = "Guest";
                 if(loginBtn) loginBtn.classList.remove('hidden');
                 if(logoutBtn) logoutBtn.classList.add('hidden');
-                if(saveBtn) saveBtn.classList.add('hidden'); 
-                if(sidebarStatus) sidebarStatus.innerText = "Account Required";
+                if(cloudSection) cloudSection.classList.add('hidden'); // Hides Save/Cloud area
+                if(guestPrompt) guestPrompt.classList.remove('hidden'); // Shows Login prompt
             }
         });
 
@@ -197,6 +191,23 @@ import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, addDoc,
                 alert("Game saved to cloud!");
                 window.loadHistory(); 
             } catch (e) { console.error(e); }
+        };
+    
+
+        window.toggleCommentary = () => {
+            const bubble = document.getElementById('commentary-bubble');
+            const btn = document.getElementById('commentary-btn');
+            const isMuted = localStorage.getItem('mute-commentary') === 'true';
+
+            if (isMuted) {
+                localStorage.setItem('mute-commentary', 'false');
+                if(bubble) bubble.style.opacity = "1";
+                if(btn) btn.innerText = "Disable Commentary";
+            } else {
+                localStorage.setItem('mute-commentary', 'true');
+                if(bubble) bubble.style.opacity = "0";
+                if(btn) btn.innerText = "Enable Commentary";
+            }
         };
 
         // 5. DELETE FUNCTION
@@ -239,6 +250,112 @@ import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, addDoc,
                 });
             } catch (e) { console.error(e); }
         };
+    // --- NEW LOGIC START ---
+window.toggleEvalDisplay = () => {
+            const evalDisplay = document.getElementById('eval-score');
+            const btn = document.getElementById('toggle-eval-btn');
+            const isHidden = localStorage.getItem('hide-eval') === 'true';
+
+            if (isHidden) {
+                localStorage.setItem('hide-eval', 'false');
+                if(evalDisplay) evalDisplay.style.visibility = 'visible';
+                btn.innerText = "Hide Evaluation";
+                btn.classList.replace('bg-blue-600/20', 'bg-white/10');
+            } else {
+                localStorage.setItem('hide-eval', 'true');
+                if(evalDisplay) evalDisplay.style.visibility = 'hidden';
+                btn.innerText = "Show Evaluation";
+                btn.classList.replace('bg-white/10', 'bg-blue-600/20');
+            }
+        };
+        // --- NEW LOGIC END ---
+
+        function loadCustomFEN() {
+            const f = document.getElementById('fen-setup').value;
+            if (game.load(f)) { history = [game.fen()]; viewIndex = -1; initBoard(); switchTab('moves'); }
+            else alert("Invalid FEN");
+        }
+
+        async function fetchBook() {
+            const fen = viewIndex === -1 ? game.fen() : history[viewIndex];
+            try {
+                const res = await fetch(`https://explorer.lichess.ovh/masters?fen=${encodeURIComponent(fen)}&topGames=10`);
+                const data = await res.json();
+                const cont = document.getElementById('book-content');
+                cont.innerHTML = '<div class="text-[9px] font-black text-gray-500 mb-2">THEORY CONTINUATIONS</div>';
+                data.moves?.forEach(m => {
+                    const d = document.createElement('div');
+                    d.className = 'flex justify-between p-2 bg-white/5 rounded text-[10px] cursor-pointer hover:bg-blue-600/20';
+                    d.innerHTML = `<span class="font-black text-blue-400">${m.san}</span> <span class="flex gap-2"><span class="text-green-500 font-bold">W:${m.white}</span><span class="text-gray-400 font-bold">D:${m.draws}</span><span class="text-red-500 font-bold">L:${m.black}</span></span>`;
+                    d.onclick = () => { game.move(m.san); history.push(game.fen()); initBoard(); };
+                    cont.appendChild(d);
+                });
+            } catch(e){}
+        }
+
+        function buildPers() {
+            [document.getElementById('p1-list'), document.getElementById('p2-list')].forEach((container, idx) => {
+                container.innerHTML = '';
+                Object.entries(PERSONALITIES).forEach(([k, p]) => {
+                    const active = (idx === 0 ? whiteP : blackP) === k;
+                    const b = document.createElement('button');
+                    b.className = `p-2 text-[8px] font-black uppercase text-left rounded ${active ? 'bg-blue-600' : 'bg-white/5'}`;
+                    b.innerText = p.name;
+                    b.onclick = () => { if (idx === 0) whiteP = k; else blackP = k; buildPers(); };
+                    container.appendChild(b);
+                });
+            });
+        }
+
+        function resetGame() { 
+            const is960 = document.getElementById('toggle-960').checked;
+            game = new Chess();
+            if (is960) {
+                const fen960 = generate960FEN();
+                game.load(fen960);
+                if (engine) engine.postMessage('setoption name UCI_Chess960 value true');
+            } else {
+                if (engine) engine.postMessage('setoption name UCI_Chess960 value false');
+            }
+            history = [game.fen()]; moveData = []; viewIndex = -1; initBoard();
+        }
+
+        function navigateGame(d) {
+            if (d === 'start') viewIndex = 0;
+            else if (d === 'prev') viewIndex = Math.max(0, (viewIndex === -1 ? history.length - 1 : viewIndex) - 1);
+            else { viewIndex++; if (viewIndex >= history.length) viewIndex = -1; }
+            initBoard();
+        }
+
+        function importPGN() { if(game.load_pgn(document.getElementById('pgn-input').value)){ syncHistory(); initBoard(); switchTab('moves'); } else alert("Bad PGN"); }
+        function copyPGN() { 
+            const pgn = game.pgn();
+            document.getElementById('pgn-input').value = pgn; 
+            navigator.clipboard.writeText(pgn); 
+        }
+
+        window.onload = () => { 
+            if (!localStorage.getItem('fiesh-setup-v2')) {
+                document.getElementById('first-time-modal').classList.remove('hidden');
+            }
+            
+            if (localStorage.getItem('hide-eval') === 'true') {
+                const evalDisplay = document.getElementById('eval-score');
+                if (evalDisplay) evalDisplay.style.visibility = 'hidden';
+                const btn = document.getElementById('toggle-eval-btn');
+                if (btn) {
+                    btn.innerText = "Show Evaluation";
+                    btn.classList.replace('bg-white/10', 'bg-blue-600/20');
+                }
+            }
+            initEngine(); buildPers(); initBoard(); 
+        };
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./pwabuilder-sw.js').catch(err => console.log(err));
+            });
+        }
     </script>
 </head>
 <body class="flex flex-col">
@@ -326,6 +443,14 @@ import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, addDoc,
                 <button onclick="stopDuel('none')" class="flex-1 bg-red-600/20 text-red-400 py-2 rounded text-[9px] font-black uppercase">Stop Engine</button>
                 <button onclick="startGameReview('deep')" class="flex-1 bg-purple-600/20 text-purple-400 py-2 rounded text-[9px] font-black uppercase">Deep Review</button>
             </div>
+            <div class="w-full max-w-[500px] mt-1 flex gap-1">
+                <button id="toggle-eval-btn" onclick="toggleEvalDisplay()" class="flex-1 bg-white/10 text-white/70 py-2 rounded text-[9px] font-black uppercase hover:bg-white/20 transition-all">
+                    Hide Evaluation
+                </button>
+                <button id="commentary-btn" onclick="toggleCommentary()" class="flex-1 bg-white/10 text-white/70 py-2 rounded text-[9px] font-black uppercase hover:bg-white/20 transition-all">
+                    Disable Commentary
+                </button>
+            </div>
         </div>
 
         <!-- Sidebar Panel -->
@@ -357,24 +482,31 @@ import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, addDoc,
                 </div>
             </div>
 
-            <div id="content-import" class="hidden flex-1 overflow-y-auto p-4 space-y-4">
-    <div class="p-3 bg-blue-600/10 border border-blue-500/20 rounded-lg mb-4">
-        <p id="auth-status" class="text-[10px] font-bold uppercase text-blue-400 mb-2">Account Required for Online Features</p>
-        <button onclick="loginUser()" class="w-full bg-blue-600 py-2 rounded text-xs font-bold">LOGIN WITH GOOGLE</button>
-<button id="save-game-btn" onclick="saveGameToFirebase()" class="w-full mt-3 bg-green-600/20 text-green-400 py-2 rounded text-[10px] font-black uppercase border border-green-600/30 hover:bg-green-600/40 transition-all">
-    <i class="fa-solid fa-cloud-arrow-up mr-2"></i> Save Current Game
-</button>
+<div id="content-import" class="hidden flex-1 overflow-y-auto p-4 space-y-4">
+    <div id="cloud-section" class="hidden p-3 bg-blue-600/10 border border-blue-500/20 rounded-lg">
+        <p class="text-[10px] font-bold uppercase text-blue-400 mb-2">Cloud Storage</p>
+        <button id="save-game-btn" onclick="saveGameToFirebase()" class="w-full bg-green-600/20 text-green-400 py-2 rounded text-[10px] font-black uppercase border border-green-600/30 hover:bg-green-600/40 transition-all mb-3">
+            <i class="fa-solid fa-cloud-arrow-up mr-2"></i> Save Current Game
+        </button>
+        <div id="history-list" class="space-y-1"></div>
     </div>
 
-    <div class="flex gap-2">
-        <input id="search-username" type="text" placeholder="Chess.com Username..." class="flex-1 bg-black/40 border border-white/10 rounded px-3 py-2 text-xs">
-        <button onclick="getProfile()" class="bg-blue-600 px-4 rounded text-xs font-bold">SEARCH</button>
+    <div id="guest-prompt" class="p-3 bg-white/5 border border-white/10 rounded-lg">
+        <p class="text-[10px] font-bold uppercase text-gray-500 mb-2 text-center">Login to sync games to cloud</p>
+        <button onclick="loginUser()" class="w-full bg-blue-600 py-2 rounded text-xs font-bold uppercase tracking-wider">Login with Google</button>
     </div>
-                <div id="profile-card" class="hidden p-3 bg-black/60 border border-white/10 rounded-lg space-y-3"></div>
-                <div id="history-list" class="space-y-1"></div>
-                <button id="btn-more" onclick="fetchMoreGames()" class="hidden w-full bg-white/5 py-2 rounded text-[9px] font-black uppercase">Load 20 More</button>
-            </div>
+
+    <div class="pt-4 border-t border-white/5">
+        <p class="text-[10px] font-black text-gray-500 uppercase mb-2">Search Chess.com Profile</p>
+        <div class="flex gap-2">
+            <input id="search-username" type="text" placeholder="Username..." class="flex-1 bg-black/40 border border-white/10 rounded px-3 py-2 text-xs">
+            <button onclick="getProfile()" class="bg-blue-600 px-4 rounded text-xs font-bold uppercase">Search</button>
         </div>
+        <div id="profile-card" class="hidden mt-3 p-3 bg-black/60 border border-white/10 rounded-lg space-y-3"></div>
+        <div id="chess-com-games" class="mt-3 space-y-1"></div>
+        <button id="btn-more" onclick="fetchMoreGames()" class="hidden w-full bg-white/5 py-2 rounded text-[9px] font-black uppercase mt-2">Load 20 More</button>
+    </div>
+</div>
     </main>
 
     <!-- Review Modal -->
@@ -451,7 +583,7 @@ import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, addDoc,
                     <input type="checkbox" id="toggle-960" onchange="resetGame()" class="w-4 h-4 accent-blue-600">
                 </div>
                 <div class="p-2 bg-white/5 rounded space-y-2">
-                    <label class="text-[9px] font-black text-gray-500 uppercase block">Commentary Toggles</label>
+                    <label class="text-[9px] font-black text-gray-500 uppercase block">Disable Commentary</label>
                     <div class="flex gap-4">
                         <label class="text-[8px] flex items-center gap-1"><input type="checkbox" id="mute-white" class="accent-blue-600"> WHITE</label>
                         <label class="text-[8px] flex items-center gap-1"><input type="checkbox" id="mute-black" class="accent-blue-600"> BLACK</label>
@@ -1355,10 +1487,10 @@ import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, addDoc,
         function updateTheme(k) { document.documentElement.style.setProperty('--board-light', THEMES[k].light); document.documentElement.style.setProperty('--board-dark', THEMES[k].dark); initBoard(); }
         function updatePieces(k) { pieceSet = k; initBoard(); }
         function clearHighlights() { document.querySelectorAll('.square').forEach(s => s.classList.remove('selected', 'valid-move')); }
-        
         function resetGame() { 
             const is960 = document.getElementById('toggle-960').checked;
             game = new Chess();
+            
             if (is960) {
                 const fen960 = generate960FEN();
                 game.load(fen960);
@@ -1366,24 +1498,17 @@ import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, addDoc,
             } else {
                 if (engine) engine.postMessage('setoption name UCI_Chess960 value false');
             }
+            
             history = [game.fen()]; 
             moveData = []; 
             viewIndex = -1; 
             initBoard();
-            function resetGame() {
-    // ... your existing code ...
 
-    // ADD THIS: Save to Firestore
-    if (auth.currentUser) {
-        const gameData = {
-            pgn: game.pgn(),
-            date: new Date(),
-            userId: auth.currentUser.uid
-        };
-        // Use the 'db' variable to save to a "games" collection
-        console.log("Saving game to Firestore..."); 
-    }
-}
+            // Firestore Save Logic (Now correctly placed)
+            if (typeof auth !== 'undefined' && auth.currentUser) {
+                console.log("Saving game to Firestore..."); 
+                // Add your db.collection code here
+            }
         }
 
         function navigateGame(d) {
@@ -1392,14 +1517,44 @@ import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, addDoc,
             else { viewIndex++; if (viewIndex >= history.length) viewIndex = -1; }
             initBoard();
         }
-        function importPGN() { if(game.load_pgn(document.getElementById('pgn-input').value)){ syncHistory(); initBoard(); switchTab('moves'); } else alert("Bad PGN"); }
+
+        function importPGN() { 
+            if(game.load_pgn(document.getElementById('pgn-input').value)){ 
+                syncHistory(); 
+                initBoard(); 
+                switchTab('moves'); 
+            } else alert("Bad PGN"); 
+        }
+
         function copyPGN() { 
             const pgn = game.pgn();
             document.getElementById('pgn-input').value = pgn; 
             navigator.clipboard.writeText(pgn); 
         }
 
-        // PWA SERVICE WORKER REGISTRATION (Kept at bottom for safety)
+        // --- RESTORED ONLOAD ---
+        window.onload = () => { 
+            if (!localStorage.getItem('fiesh-setup-v2')) {
+                document.getElementById('first-time-modal').classList.remove('hidden');
+            }
+
+            // Apply evaluation visibility preference
+            if (localStorage.getItem('hide-eval') === 'true') {
+                const evalScore = document.getElementById('eval-score');
+                if (evalScore) evalScore.style.visibility = 'hidden';
+                const btn = document.getElementById('toggle-eval-btn');
+                if (btn) {
+                    btn.innerText = "Show Evaluation";
+                    btn.classList.replace('bg-white/10', 'bg-blue-600/20');
+                }
+            }
+
+            initEngine(); 
+            buildPers(); 
+            initBoard(); 
+        };
+
+        // PWA SERVICE WORKER
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./pwabuilder-sw.js').then(reg => {
@@ -1409,15 +1564,6 @@ import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, addDoc,
                 });
             });
         }
-
-        window.onload = () => { 
-            if (!localStorage.getItem('fiesh-setup-v2')) {
-                document.getElementById('first-time-modal').classList.remove('hidden');
-            }
-            initEngine(); 
-            buildPers(); 
-            initBoard(); 
-        };
-    </script>
+            </script>
 </body>
 </html>
