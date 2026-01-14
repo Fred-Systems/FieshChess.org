@@ -269,7 +269,7 @@ window.toggleEvalDisplay = () => {
             }
         };
         // --- NEW LOGIC END ---
-async function searchChessCom() {
+window.searchChessCom = async () => {
             const user = document.getElementById('search-username').value.trim();
             const res = document.getElementById('profile-card');
             const gameList = document.getElementById('chess-com-games');
@@ -320,7 +320,7 @@ async function searchChessCom() {
                             <div class="bg-white/5 p-2 rounded border-l-2 ${win ? 'border-green-500' : 'border-red-500'} hover:bg-white/10 transition-all">
                                 <div class="flex justify-between items-center mb-1">
                                     <span class="text-[10px] font-bold cursor-pointer text-blue-300 hover:underline" 
-                                          onclick="game.load_pgn(\`${g.pgn.replace(/`/g, "'")}\`); initBoard(); switchTab('moves');">
+                                          onclick="game.load_pgn(\`${g.pgn.replace(/`/g, "'")}\`); window.initBoard(); window.switchTab('moves');">
                                         vs ${opponent}
                                     </span>
                                     <span class="text-[9px] font-black ${colorClass} uppercase">${result}</span>
