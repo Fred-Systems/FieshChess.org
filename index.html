@@ -112,7 +112,7 @@
 <script type="module">
         import { auth, db } from './firebase-config.js';
         import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { collection, query, where, getDocs, orderBy, limit, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, addDoc, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // 1. LOGIN FUNCTION
         window.loginUser = async () => {
@@ -134,15 +134,19 @@
         };
 
         // 3. AUTH WATCHER (Handles UI, Admin Crown, and Sidebar Status)
+// 3. AUTH WATCHER (Handles UI, Admin Crown, and Sidebar Status)
         onAuthStateChanged(auth, async (user) => {
             const display = document.getElementById('auth-status-display');
             const logoutBtn = document.getElementById('logout-btn');
             const loginBtn = document.getElementById('login-btn-header');
             const sidebarStatus = document.getElementById('auth-status');
+            const saveBtn = document.getElementById('save-game-btn'); // Finds your new button
 
             if (user) {
+                // LOGGED IN: Show Logout and Save buttons
                 if(loginBtn) loginBtn.classList.add('hidden');
                 if(logoutBtn) logoutBtn.classList.remove('hidden');
+                if(saveBtn) saveBtn.classList.remove('hidden'); 
                 
                 if(display) {
                     display.innerText = user.displayName;
@@ -151,7 +155,7 @@
                 }
                 if(sidebarStatus) sidebarStatus.innerText = `Logged in as ${user.displayName}`;
 
-                // Check Firestore for Admin Role
+                // Check for Admin
                 try {
                     const userDoc = await getDoc(doc(db, "users", user.uid));
                     if (userDoc.exists() && userDoc.data().role === 'admin') {
@@ -160,10 +164,13 @@
                             display.classList.replace('text-green-400', 'text-yellow-400');
                         }
                     }
-                } catch (e) {
-                    console.error("Error checking admin status:", e);
-                }
+                } catch (e) { console.error(e); }
+
+                // Automatically load history when the user logs in
+                window.loadHistory();
+
             } else {
+                // LOGGED OUT: Hide Logout and Save buttons
                 if(display) {
                     display.innerText = "Guest";
                     display.classList.add('text-gray-500');
@@ -171,35 +178,66 @@
                 }
                 if(loginBtn) loginBtn.classList.remove('hidden');
                 if(logoutBtn) logoutBtn.classList.add('hidden');
+                if(saveBtn) saveBtn.classList.add('hidden'); 
                 if(sidebarStatus) sidebarStatus.innerText = "Account Required";
             }
         });
 
         // 4. LOAD HISTORY FUNCTION
+// 4. SAVE FUNCTION
+        window.saveGameToFirebase = async () => {
+            if (!auth.currentUser) { alert("Please login to save games!"); return; }
+            if (game.history().length === 0) { alert("Start a game first!"); return; }
+            try {
+                await addDoc(collection(db, "games"), {
+                    userId: auth.currentUser.uid,
+                    pgn: game.pgn(),
+                    timestamp: serverTimestamp()
+                });
+                alert("Game saved to cloud!");
+                window.loadHistory(); 
+            } catch (e) { console.error(e); }
+        };
+
+        // 5. DELETE FUNCTION
+        window.deleteGame = async (gameId, event) => {
+            event.stopPropagation(); 
+            if (!confirm("Delete this game?")) return;
+            try {
+                await deleteDoc(doc(db, "games", gameId));
+                window.loadHistory(); 
+            } catch (e) { console.error(e); }
+        };
+
+        // 6. LOAD HISTORY
         window.loadHistory = async () => {
             const list = document.getElementById('history-list');
             if (!auth.currentUser) {
-                list.innerHTML = "<p class='text-[10px] text-gray-500'>Login to see history</p>";
+                list.innerHTML = "<p class='text-[10px] text-gray-500'>Login to see saved games</p>";
                 return;
             }
-            list.innerHTML = "<p class='text-[10px] animate-pulse text-blue-400'>Fetching your games...</p>";
+            list.innerHTML = "<p class='text-[10px] animate-pulse text-blue-400'>Loading cloud games...</p>";
             try {
-                const q = query(collection(db, "games"), where("userId", "==", auth.currentUser.uid), orderBy("timestamp", "desc"), limit(15));
+                const q = query(collection(db, "games"), where("userId", "==", auth.currentUser.uid), orderBy("timestamp", "desc"));
                 const snap = await getDocs(q);
                 list.innerHTML = "";
-                if (snap.empty) { list.innerHTML = "<p class='text-[10px] text-gray-500'>No games found.</p>"; return; }
-                snap.forEach(doc => {
-                    const data = doc.data();
+                if (snap.empty) { list.innerHTML = "<p class='text-[10px] text-gray-500'>No saved games.</p>"; return; }
+                
+                snap.forEach(gameDoc => {
+                    const data = gameDoc.data();
                     const div = document.createElement('div');
-                    div.className = "bg-white/5 p-3 rounded border border-white/5 hover:border-blue-500/50 cursor-pointer transition-all";
-                    div.innerHTML = `<div class='text-[8px] text-gray-500 font-bold uppercase'>${data.timestamp?.toDate().toLocaleDateString()}</div><div class='text-[10px] truncate text-gray-300'>${data.pgn}</div>`;
+                    div.className = "group bg-white/5 p-3 rounded border border-white/5 hover:border-blue-500/50 cursor-pointer mb-2 flex justify-between items-center";
+                    div.innerHTML = `
+                        <div class="flex-1">
+                            <div class='text-[8px] text-gray-500 font-bold uppercase'>${data.timestamp?.toDate().toLocaleDateString() || 'Recent'}</div>
+                            <div class='text-[10px] truncate text-gray-300 w-32'>${data.pgn}</div>
+                        </div>
+                        <button onclick="deleteGame('${gameDoc.id}', event)" class="p-2 text-gray-600 hover:text-red-500"><i class="fa-solid fa-trash-can"></i></button>
+                    `;
                     div.onclick = () => { game.load_pgn(data.pgn); board.position(game.fen()); updateStatus(); switchTab('moves'); };
                     list.appendChild(div);
                 });
-            } catch (e) {
-                list.innerHTML = "<p class='text-[10px] text-red-400 font-bold uppercase'>Index Error.</p>";
-                console.error("Firebase Error:", e);
-            }
+            } catch (e) { console.error(e); }
         };
     </script>
 </head>
@@ -323,6 +361,9 @@
     <div class="p-3 bg-blue-600/10 border border-blue-500/20 rounded-lg mb-4">
         <p id="auth-status" class="text-[10px] font-bold uppercase text-blue-400 mb-2">Account Required for Online Features</p>
         <button onclick="loginUser()" class="w-full bg-blue-600 py-2 rounded text-xs font-bold">LOGIN WITH GOOGLE</button>
+<button id="save-game-btn" onclick="saveGameToFirebase()" class="w-full mt-3 bg-green-600/20 text-green-400 py-2 rounded text-[10px] font-black uppercase border border-green-600/30 hover:bg-green-600/40 transition-all">
+    <i class="fa-solid fa-cloud-arrow-up mr-2"></i> Save Current Game
+</button>
     </div>
 
     <div class="flex gap-2">
@@ -330,7 +371,7 @@
         <button onclick="getProfile()" class="bg-blue-600 px-4 rounded text-xs font-bold">SEARCH</button>
     </div>
                 <div id="profile-card" class="hidden p-3 bg-black/60 border border-white/10 rounded-lg space-y-3"></div>
-                <div id="game-list" class="space-y-1"></div>
+                <div id="history-list" class="space-y-1"></div>
                 <button id="btn-more" onclick="fetchMoreGames()" class="hidden w-full bg-white/5 py-2 rounded text-[9px] font-black uppercase">Load 20 More</button>
             </div>
         </div>
@@ -410,7 +451,7 @@
                     <input type="checkbox" id="toggle-960" onchange="resetGame()" class="w-4 h-4 accent-blue-600">
                 </div>
                 <div class="p-2 bg-white/5 rounded space-y-2">
-                    <label class="text-[9px] font-black text-gray-500 uppercase block">Disable Commentary(by color)</label>
+                    <label class="text-[9px] font-black text-gray-500 uppercase block">Commentary Toggles</label>
                     <div class="flex gap-4">
                         <label class="text-[8px] flex items-center gap-1"><input type="checkbox" id="mute-white" class="accent-blue-600"> WHITE</label>
                         <label class="text-[8px] flex items-center gap-1"><input type="checkbox" id="mute-black" class="accent-blue-600"> BLACK</label>
