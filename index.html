@@ -221,123 +221,114 @@ import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, addDoc,
         };
 
         // 6. LOAD HISTORY
+// Tracking for "Load More" logic
+        let archiveList = [];
+        let currentArchiveIndex = 0;
+
+        // FIXED: Load Cloud Games properly to Board + Move List
         window.loadHistory = async () => {
             const list = document.getElementById('history-list');
-            if (!auth.currentUser) {
-                list.innerHTML = "<p class='text-[10px] text-gray-500'>Login to see saved games</p>";
-                return;
-            }
-            list.innerHTML = "<p class='text-[10px] animate-pulse text-blue-400'>Loading cloud games...</p>";
+            if (!auth.currentUser) return;
             try {
                 const q = query(collection(db, "games"), where("userId", "==", auth.currentUser.uid), orderBy("timestamp", "desc"));
                 const snap = await getDocs(q);
                 list.innerHTML = "";
-                if (snap.empty) { list.innerHTML = "<p class='text-[10px] text-gray-500'>No saved games.</p>"; return; }
-                
                 snap.forEach(gameDoc => {
                     const data = gameDoc.data();
                     const div = document.createElement('div');
-                    div.className = "group bg-white/5 p-3 rounded border border-white/5 hover:border-blue-500/50 cursor-pointer mb-2 flex justify-between items-center";
-                    div.innerHTML = `
-                        <div class="flex-1">
-                            <div class='text-[8px] text-gray-500 font-bold uppercase'>${data.timestamp?.toDate().toLocaleDateString() || 'Recent'}</div>
-                            <div class='text-[10px] truncate text-gray-300 w-32'>${data.pgn}</div>
-                        </div>
-                        <button onclick="deleteGame('${gameDoc.id}', event)" class="p-2 text-gray-600 hover:text-red-500"><i class="fa-solid fa-trash-can"></i></button>
-                    `;
-                    div.onclick = () => { game.load_pgn(data.pgn); board.position(game.fen()); updateStatus(); switchTab('moves'); };
+                    div.className = "group bg-white/5 p-2 rounded mb-1 cursor-pointer hover:bg-white/10 flex justify-between";
+                    div.innerHTML = `<div class="truncate text-[10px] opacity-70">${data.pgn}</div><button onclick="deleteGame('${gameDoc.id}', event)" class="text-red-500"><i class="fa-trash fa-solid"></i></button>`;
+                    
+                    // THE FIX: Use window.syncHistory() to rebuild the move list sidebar
+                    div.onclick = () => { 
+                        if(game.load_pgn(data.pgn)) {
+                            window.initBoard(); 
+                            window.syncHistory(); 
+                            window.switchTab('moves'); 
+                        }
+                    };
                     list.appendChild(div);
                 });
             } catch (e) { console.error(e); }
         };
-    // --- NEW LOGIC START ---
-window.toggleEvalDisplay = () => {
-            const evalDisplay = document.getElementById('eval-score');
-            const btn = document.getElementById('toggle-eval-btn');
-            const isHidden = localStorage.getItem('hide-eval') === 'true';
 
-            if (isHidden) {
-                localStorage.setItem('hide-eval', 'false');
-                if(evalDisplay) evalDisplay.style.visibility = 'visible';
-                btn.innerText = "Hide Evaluation";
-                btn.classList.replace('bg-blue-600/20', 'bg-white/10');
-            } else {
-                localStorage.setItem('hide-eval', 'true');
-                if(evalDisplay) evalDisplay.style.visibility = 'hidden';
-                btn.innerText = "Show Evaluation";
-                btn.classList.replace('bg-white/10', 'bg-blue-600/20');
-            }
-        };
-        // --- NEW LOGIC END ---
-window.searchChessCom = async () => {
+        // NEW: Upgraded Search with Ratings & Joined Date
+        window.searchChessCom = async () => {
             const user = document.getElementById('search-username').value.trim();
             const res = document.getElementById('profile-card');
             const gameList = document.getElementById('chess-com-games');
-            
             if (!user) return;
             
             res.classList.remove('hidden');
-            res.innerHTML = '<div class="p-4 text-center animate-pulse text-[10px]">SEARCHING ARCHIVES...</div>';
+            res.innerHTML = '<div class="p-4 text-center animate-pulse text-[10px]">SYNCING CHESS.COM DATA...</div>';
             gameList.innerHTML = '';
 
             try {
-                // 1. Fetch Profile
-                const pRes = await fetch(`https://api.chess.com/pub/player/${user}`);
-                const pData = await pRes.json();
+                const [pRes, sRes, aRes] = await Promise.all([
+                    fetch(`https://api.chess.com/pub/player/${user}`),
+                    fetch(`https://api.chess.com/pub/player/${user}/stats`),
+                    fetch(`https://api.chess.com/pub/player/${user}/games/archives`)
+                ]);
                 
-                // 2. Fetch Latest Games
-                const aRes = await fetch(`https://api.chess.com/pub/player/${user}/games/archives`);
+                const pData = await pRes.json();
+                const sData = await sRes.json();
                 const aData = await aRes.json();
                 
-                if (aData.archives && aData.archives.length > 0) {
-                    const gRes = await fetch(aData.archives[aData.archives.length - 1]);
-                    const gData = await gRes.json();
-                    
-                    // Profile Header
-                    res.innerHTML = `
-                        <div class="flex items-center gap-3 border-b border-white/10 pb-3">
-                            <img src="${pData.avatar || 'https://www.chess.com/bundles/web/images/noavatar_l.gif'}" class="w-10 h-10 rounded border border-blue-500">
+                archiveList = aData.archives || [];
+                currentArchiveIndex = archiveList.length - 1;
+
+                const joined = new Date(pData.joined * 1000).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
+                res.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-3 border-b border-white/10 pb-2">
+                            <img src="${pData.avatar || 'https://www.chess.com/bundles/web/images/noavatar_l.gif'}" class="w-10 h-10 rounded-lg border border-blue-500">
                             <div>
-                                <div class="text-xs font-black uppercase italic text-white">${pData.username}</div>
-                                <a href="${pData.url}" target="_blank" class="text-[9px] text-blue-400 hover:underline">VIEW CHESS.COM PROFILE</a>
+                                <div class="text-[10px] font-black text-white uppercase italic">${pData.username}</div>
+                                <div class="text-[8px] text-gray-500 uppercase font-bold">Joined ${joined} • ${pData.followers} Followers</div>
                             </div>
                         </div>
-                    `;
+                        <div class="grid grid-cols-3 gap-1">
+                            <div class="bg-orange-600/20 border border-orange-500/30 p-1 rounded text-center">
+                                <div class="text-[7px] font-black text-orange-400 uppercase">Rapid</div>
+                                <div class="text-[11px] font-black text-white">${sData.chess_rapid?.last?.rating || 'N/A'}</div>
+                            </div>
+                            <div class="bg-yellow-600/20 border border-yellow-500/30 p-1 rounded text-center">
+                                <div class="text-[7px] font-black text-yellow-400 uppercase">Blitz</div>
+                                <div class="text-[11px] font-black text-white">${sData.chess_blitz?.last?.rating || 'N/A'}</div>
+                            </div>
+                            <div class="bg-blue-600/20 border border-blue-500/30 p-1 rounded text-center">
+                                <div class="text-[7px] font-black text-blue-400 uppercase">Bullet</div>
+                                <div class="text-[11px] font-black text-white">${sData.chess_bullet?.last?.rating || 'N/A'}</div>
+                            </div>
+                        </div>
+                    </div>`;
 
-                    // Scrollable Game List
-                    let gamesHtml = '<div class="max-h-[300px] overflow-y-auto pr-1 custom-scroll space-y-1 mt-2">';
-                    gData.games.reverse().slice(0, 20).forEach(g => {
-                        const isWhite = g.white.username.toLowerCase() === user.toLowerCase();
-                        const opponent = isWhite ? g.black.username : g.white.username;
-                        const result = isWhite ? g.white.result : g.black.result;
-                        
-                        // Color logic: Win = Green, Loss/Draw = Red/Gray
-                        const win = ["win"].includes(result);
-                        const draw = ["draw", "stalemate", "repetition"].includes(result);
-                        const colorClass = win ? "text-green-400" : (draw ? "text-gray-400" : "text-red-400");
+                window.fetchMoreGames(); // Load first 20 automatically
+            } catch (e) { res.innerHTML = "PLAYER NOT FOUND"; }
+        };
 
-                        gamesHtml += `
-                            <div class="bg-white/5 p-2 rounded border-l-2 ${win ? 'border-green-500' : 'border-red-500'} hover:bg-white/10 transition-all">
-                                <div class="flex justify-between items-center mb-1">
-                                    <span class="text-[10px] font-bold cursor-pointer text-blue-300 hover:underline" 
-                                          onclick="game.load_pgn(\`${g.pgn.replace(/`/g, "'")}\`); window.initBoard(); window.switchTab('moves');">
-                                        vs ${opponent}
-                                    </span>
-                                    <span class="text-[9px] font-black ${colorClass} uppercase">${result}</span>
-                                </div>
-                                <div class="flex gap-3 text-[8px] font-black opacity-60">
-                                    <a href="${g.url}" target="_blank" class="hover:text-white"><i class="fas fa-external-link-alt"></i> GAME LINK</a>
-                                    <a href="https://www.chess.com/member/${opponent}" target="_blank" class="hover:text-white"><i class="fas fa-user"></i> OPPONENT</a>
-                                </div>
-                            </div>`;
-                    });
-                    gamesHtml += '</div>';
-                    gameList.innerHTML = gamesHtml;
-                }
-            } catch (e) {
-                res.innerHTML = '<div class="p-4 text-red-400 text-[10px] font-bold text-center">PLAYER NOT FOUND</div>';
-            }
-        }
+        window.fetchMoreGames = async () => {
+            if (currentArchiveIndex < 0) return;
+            const list = document.getElementById('chess-com-games');
+            const btn = document.getElementById('btn-more');
+            try {
+                const res = await fetch(archiveList[currentArchiveIndex]);
+                const data = await res.json();
+                data.games.reverse().slice(0, 20).forEach(g => {
+                    const div = document.createElement('div');
+                    div.className = "bg-white/5 p-2 rounded border-l-2 border-blue-500 hover:bg-white/10 mb-1 cursor-pointer";
+                    div.innerHTML = `<div class="text-[10px] font-bold text-blue-300">vs ${g.white.username}</div>`;
+                    div.onclick = () => { game.load_pgn(g.pgn); window.initBoard(); window.syncHistory(); window.switchTab('moves'); };
+                    list.appendChild(div);
+                });
+                currentArchiveIndex--;
+                if(btn) btn.classList.remove('hidden');
+            } catch (e) { console.error(e); }
+        };
+        // --- NEW LOGIC END ---
+
+
         function loadCustomFEN() {
             const f = document.getElementById('fen-setup').value;
             if (game.load(f)) { history = [game.fen()]; viewIndex = -1; initBoard(); switchTab('moves'); }
